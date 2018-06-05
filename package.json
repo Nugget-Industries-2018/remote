@@ -1,0 +1,25 @@
+{
+  "dependencies": {
+    "nugget-comms": "git+https://github.com/Nugget-Industries-2018/nugget-comms.git",
+    "nugget-logger": "git+https://github.com/Nugget-Industries-2018/nugget-logger.git",
+    "pca9685": "^4.0.3",
+    "yargs": "^11.0.0"
+  },
+  "name": "remote",
+  "version": "1.0.0",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Nugget-Industries-2018/remote.git"
+  },
+  "author": "Bobby Martin & Chris Thierauf",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/Nugget-Industries-2018/remote/issues"
+  },
+  "homepage": "https://github.com/Nugget-Industries-2018/remote#readme",
+  "description": ""
+}
