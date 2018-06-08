@@ -198,6 +198,7 @@ tokenTypeEmitter.on(tokenTypes.STARTPITEMPSTREAM, startPiTempStream);
 tokenTypeEmitter.on(tokenTypes.STOPPITEMPSTREAM, stopPiTempStream);
 tokenTypeEmitter.on(tokenTypes.SETDEPTHLOCK, setDepthLock);
 tokenTypeEmitter.on(tokenTypes.LEDTEST, setLEDBrightness);
+tokenTypeEmitter.on(tokenTypes.PIDTUNE, tunePIDLoop);
 
 // respond with the same body as the request
 function echo(data) {
@@ -517,6 +518,16 @@ function setLEDBrightness(data) {
         logger.d('LEDTest', `${channel} ${dutyCycle}`);
         pca.setDutyCycle(channel, dutyCycle);
     });
+
+    sendToken(new responseToken({}, data.headers.transactionID));
+}
+
+function tunePIDLoop(data) {
+    if (data.hasOwnProperty('zKp')) zKp = data.body.zKp;
+    if (data.hasOwnProperty('zKi')) zKi = data.body.zKi;
+    if (data.hasOwnProperty('zKd')) zKd = data.body.zKd;
+
+    sendToken(new responseToken({}, data.headers.transactionID));
 }
 
 function sendToken(token) {
