@@ -18,7 +18,6 @@ const EventEmitter = require('events');
 const yargs = require('yargs');
 const { nugLog, levels } = require('nugget-logger');
 const { tokenTypes, responseTypes, responseToken } = require('nugget-comms').protocol;
-const depthSlave = new (require('./depth/depth'))();
 const { Pca9685Driver } = require("pca9685");
 const util = require('util');
 const fs = require('fs');
@@ -45,7 +44,8 @@ const args = yargs
     .alias('h', 'help')
     .argv;
 if (args.local) args.debug = true;
-const i2cbus = args.debug ? { openSync: () => 69 } : require('i2c-bus');
+const depthSlave = !(args.debug || args.local) ? new (require('./depth/depth'))() : {};
+const i2cbus = !args.debug ? require('i2c-bus') : { openSync: () => 69 };
 // global constants
 const hostAddress = '0.0.0.0';
 const hostPort = 8080;
@@ -279,7 +279,7 @@ function setMotors(data) {
  * @returns {Array<Object>}
  */
 function setMotorValue(data) {
-    return setMotorValues([[data]], [[1]])
+    return setMotorValues([[data]], [[1]]);
 }
 
 /**
@@ -527,7 +527,11 @@ function tunePIDLoop(data) {
     if (data.hasOwnProperty('zKi')) zKi = data.body.zKi;
     if (data.hasOwnProperty('zKd')) zKd = data.body.zKd;
 
-    sendToken(new responseToken({}, data.headers.transactionID));
+    sendToken(new responseToken({
+        zKp: zKp,
+        zKi: zKi,
+        zKd: zKd
+    }, data.headers.transactionID));
 }
 
 function sendToken(token) {
