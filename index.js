@@ -249,6 +249,7 @@ function stopMagStream(data) {
  */
 let DOFValues;
 function setMotors(data, fromController = false) {
+    logger.d('motor values token', JSON.stringify(data));
     DOFValues = data.body;
     const vectorMotorVals = calcMotorValues(DOFValues.slice(0, 3), vectorMapMatrix);
     const depthMotorVals = calcMotorValues(DOFValues.slice(3, 5), depthMapMatrix);
@@ -393,7 +394,7 @@ async function depthLoop() {
     DOFValues[4] = 0.25;
     setMotors({
         headers: {
-            transactionID: tokenTypes.MOTORDATA
+            transactionID: responseTypes.MOTORDATA
         },
         body: DOFValues
     });
