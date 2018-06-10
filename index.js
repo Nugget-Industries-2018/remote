@@ -257,7 +257,7 @@ function setMotors(data) {
     const motorValues = vectorMotorVals.concat(depthMotorVals.concat(manipulatorVal.concat(picamServoVal)));
     logger.d('motor values', JSON.stringify(motorValues));
     motorValues.map((motorVal, index) => {
-        if (args.debug || (depthLockToggle && (index === 4 || index === 5))) return;
+        // if (args.debug || (depthLockToggle && (index === 4 || index === 5))) return;
         try {
             pca.setPulseLength(motorChannels[index], motorVal);
         }
@@ -375,7 +375,7 @@ async function setDepthLock(data) {
     depthLockToggle = true;
     targetDepth = await depthSlave.getDepth();
     logger.i('depth lock', `depth lock enabled, setting to ${targetDepth}`);
-    intervals['depthLock'] = setInterval(depthLoop, 10);
+    intervals['depthLock'] = setInterval(depthLoop, 100);
 
     // respond like a good boy
     sendToken(new responseToken({}, data.headers.transactionID));
@@ -390,6 +390,7 @@ async function depthLoop() {
     // difference between target and current depth
     const error = targetDepth - await depthSlave.getPressure();
     const dofValue = Math.min(Math.max(-1, error / 15), 1);
+    logger.v('PIDDOFValue', dofValue);
 }
 
 function setLEDBrightness(data) {
