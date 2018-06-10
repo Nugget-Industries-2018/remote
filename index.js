@@ -192,7 +192,7 @@ tokenTypeEmitter.on(tokenTypes.ECHO, echo);
 tokenTypeEmitter.on(tokenTypes.READMAG, readMag);
 tokenTypeEmitter.on(tokenTypes.STARTMAGSTREAM, startMagStream);
 tokenTypeEmitter.on(tokenTypes.STOPMAGSTREAM, stopMagStream);
-tokenTypeEmitter.on(tokenTypes.CONTROLLERDATA, setMotors);
+tokenTypeEmitter.on(tokenTypes.CONTROLLERDATA, data => setMotors(data, true));
 tokenTypeEmitter.on(tokenTypes.READPITEMP, readPiTemp);
 tokenTypeEmitter.on(tokenTypes.STARTPITEMPSTREAM, startPiTempStream);
 tokenTypeEmitter.on(tokenTypes.STOPPITEMPSTREAM, stopPiTempStream);
@@ -248,7 +248,7 @@ function stopMagStream(data) {
  * @param data - token recieved from the surface
  */
 let DOFValues;
-function setMotors(data) {
+function setMotors(data, fromController = false) {
     DOFValues = data.body;
     const vectorMotorVals = calcMotorValues(DOFValues.slice(0, 3), vectorMapMatrix);
     const depthMotorVals = calcMotorValues(DOFValues.slice(3, 5), depthMapMatrix);
@@ -257,7 +257,7 @@ function setMotors(data) {
     const motorValues = vectorMotorVals.concat(depthMotorVals.concat(manipulatorVal.concat(picamServoVal)));
     logger.d('motor values', JSON.stringify(motorValues));
     motorValues.map((motorVal, index) => {
-        // if (args.debug || (depthLockToggle && (index === 4 || index === 5))) return;
+        if (args.debug || (depthLockToggle && fromController (index === 4 || index === 5))) return;
         try {
             pca.setPulseLength(motorChannels[index], motorVal);
         }
@@ -390,6 +390,9 @@ async function depthLoop() {
     // difference between target and current depth
     const error = targetPressure - await depthSlave.getPressure();
     const dofValue = Math.min(Math.max(-1, error / 30), 1);
+    DOFValues[4] = 0.25;
+    setMotors(DOFValues);
+
     logger.v('depth lock', dofValue);
 }
 
