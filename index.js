@@ -257,7 +257,7 @@ function setMotors(data, fromController = false) {
     const motorValues = vectorMotorVals.concat(depthMotorVals.concat(manipulatorVal.concat(picamServoVal)));
     logger.d('motor values', JSON.stringify(motorValues));
     motorValues.map((motorVal, index) => {
-        if (args.debug || (depthLockToggle && fromController (index === 4 || index === 5))) return;
+        if (args.debug || (depthLockToggle && fromController && (index === 4 || index === 5))) return;
         try {
             pca.setPulseLength(motorChannels[index], motorVal);
         }
