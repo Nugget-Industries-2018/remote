@@ -389,8 +389,8 @@ let zKd = 0;
 async function depthLoop() {
     // difference between target and current depth
     const error = targetPressure - await depthSlave.getPressure();
-    const dofValue = Math.min(Math.max(-1, error / 15), 1);
-    logger.v('PIDDOFValue', error);
+    const dofValue = Math.min(Math.max(-1, error / 30), 1);
+    logger.v('PIDDOFValue', dofValue);
 }
 
 function setLEDBrightness(data) {
