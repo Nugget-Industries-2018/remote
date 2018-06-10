@@ -1,5 +1,6 @@
 {
   "dependencies": {
+    "i2c-bus": "^3.2.0",
     "nugget-comms": "git+https://github.com/Nugget-Industries-2018/nugget-comms.git",
     "nugget-logger": "git+https://github.com/Nugget-Industries-2018/nugget-logger.git",
     "pca9685": "^4.0.3",
@@ -9,7 +10,8 @@
   "version": "1.0.0",
   "main": "index.js",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "start": "node ."
   },
   "repository": {
     "type": "git",
