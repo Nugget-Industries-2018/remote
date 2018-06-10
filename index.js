@@ -391,7 +391,12 @@ async function depthLoop() {
     const error = targetPressure - await depthSlave.getPressure();
     const dofValue = Math.min(Math.max(-1, error / 30), 1);
     DOFValues[4] = 0.25;
-    setMotors(DOFValues);
+    setMotors({
+        headers: {
+            transactionID: tokenTypes.MOTORDATA
+        },
+        body: DOFValues
+    });
 
     logger.v('depth lock', dofValue);
 }
