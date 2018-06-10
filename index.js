@@ -247,11 +247,13 @@ function stopMagStream(data) {
  * Maps degrees of freedom to motor values and sends the motor values in the body of a response token.
  * @param data - token recieved from the surface
  */
+let DOFValues;
 function setMotors(data) {
-    const vectorMotorVals = setMotorValues(data.body.slice(0, 3), vectorMapMatrix);
-    const depthMotorVals = setMotorValues(data.body.slice(3, 5), depthMapMatrix);
-    const manipulatorVal = setMotorValue(data.body[5]);
-    const picamServoVal = setMotorValue(data.body[7]);
+    DOFValues = data.body;
+    const vectorMotorVals = calcMotorValues(DOFValues.slice(0, 3), vectorMapMatrix);
+    const depthMotorVals = calcMotorValues(DOFValues.slice(3, 5), depthMapMatrix);
+    const manipulatorVal = calcMotorValue(DOFValues[5]);
+    const picamServoVal = calcMotorValue(DOFValues[7]);
     const motorValues = vectorMotorVals.concat(depthMotorVals.concat(manipulatorVal.concat(picamServoVal)));
     logger.d('motor values', JSON.stringify(motorValues));
     motorValues.map((motorVal, index) => {
@@ -266,20 +268,20 @@ function setMotors(data) {
     });
 
     if (!args.debug)
-        pca.setDutyCycle(6, data.body[6]);
-    logger.d('leveler', `Setting leveler channel to ${data.body[6]}`);
+        pca.setDutyCycle(6, DOFValues[6]);
+    logger.d('leveler', `Setting leveler channel to ${DOFValues[6]}`);
 
     const response = new responseToken(motorValues, data.headers.transactionID);
     sendToken(response);
 }
 
 /**
- * Wrapper for setMotorValues for when you only have to set one motor value (  like the manipulator)
+ * Wrapper for calcMotorValues for when you only have to set one motor value (  like the manipulator)
  * @param data - DOF data
  * @returns {Array<Object>}
  */
-function setMotorValue(data) {
-    return setMotorValues([[data]], [[1]]);
+function calcMotorValue(data) {
+    return calcMotorValues([[data]], [[1]]);
 }
 
 /**
@@ -288,7 +290,7 @@ function setMotorValue(data) {
  * @param matrix - Matrix mapping DOFs to motor values
  * @returns {Array<Object>}
  */
-function setMotorValues(data, matrix) {
+function calcMotorValues(data, matrix) {
     const rawValues = matrix.map(row => {
         /*
          * OK let me explain my math here:
@@ -379,134 +381,15 @@ async function setDepthLock(data) {
     sendToken(new responseToken({}, data.headers.transactionID));
 }
 
-let startZLog=false;
-var zlogfile = require('fs');
-var filepath = '/opt/zlog/zlog.csv'; /*""+makeZLogName();*/ // there was a fancy naming thing but it kept not working so it can fuck right off
-
-function doZLog(zp, zi, zd, zout, depth) {
-    if(!startZLog) {
-        console.log("Started logging at"+makeZLogName());
-        zlogfile.open(filepath, 'w', function(err, fd) {
-            if(err) throw err;
-        });
-        zlogfile.appendFile(filepath, generateHeaderString(), function(err) {
-            if(err) throw err;
-        });
-        startZLog = true;
-    }
-
-    zlogfile.appendFile(filepath, generateDataString(zp, zi, zd, zout, depth, z_last_raw, z_last_diff), function(err) {
-        console.log("Logged");
-        if(err) throw err;
-    });
-}
-
-function generateHeaderString() {
-    let headerstring = 'zp, zi, zout, depth'
-    for(let i = 0; i < z_last_raw.length; i++)
-        headerstring += ", z_last_raw"+i;
-    for(let i = 0; i < z_last_diff.length; i++)
-        headerstring += ", z_last_diff"+i;
-    return headerstring+'\n';
-}
-
-function generateDataString(zp, zi, zout, depth) {
-    let dstring = "";
-    dstring += zp+", "+zi+", "+zout+", "+depth
-    for(let i = 0; i < z_last_raw.length; i++)
-        dstring += ", "+z_last_raw[i];
-    for(let i = 0; i < z_last_diff.length; i++)
-        dstring += ", "+z_last_raw[i];
-
-    return dstring+'\n';
-}
-
-function makeZLogName() {
-    let d = new Date();
-    let logname = "/opt/zlogs/"+d+".csv";
-    return logname;
-}
-
-function inDepthDeadzone(args) {
-    // Checking if the values are within the deadzone.
-    // Done seperately just in case they aren't the same value.
-    if( !(args[0] < .15 && args[0] > -.15) )
-        return false;
-    if( !(args[1] < .15 && args[1] > -.15) )
-        return false;
-    return true;
-}
-
-// This \/ was contributing to stupid, so bye for now
-// let loop_history = 10; // Being a variable lets us change this later, if that's useful.
-let z_last_raw=[0,0,0,0,0,0,0,0,0,0]; //  To be used as an array- ideally these wouldn't be set like this but attempting to prevent stupid over here
-let z_last_diff=[0,0,0,0,0,0,0,0,0,0]; // Also to be used as an array
 // Constants are here for now, will be set by the user through the dashboard later.
 let zKp = 1;
 let zKi = 1;
 let zKd = 0;
 
 async function depthLoop() {
-    //do depth lock
-    let depth = await depthSlave.getDepth();
-    appendZ(depth);
-
-    let zp = z_last_raw[9]; // We don't want a specific depth, we want depth to be constant. So- P is change between now and last.
-    let zi = getDepthIntegral();
-    let zd = getDepthDerivative();
-    let zout = doDepthPID(zp, zi, zd);
-
-    doZLog(zp, zi, zd, zout, depth, z_last_raw, z_last_diff);
-
-    if(z_last_raw[0] != 0) { // Don't set it if we don't have a full array of data yet
-        pca.setPulseLength(1, zout+1550);
-        pca.setPulseLength(11, zout+1550);
-    }
-}
-
-function doDepthPID(zp, zi, zd) {
-    return zKp*zp + zKi*zi + zKd*zd;
-}
-
-function initLoopArray() {
-    return;
-    // cutting things up to fix stupid again, they're all set to a length of 10 @ 0 anyway
-    if(z_last_raw[0] != 0) {
-        for(let i = 0; i < 10; i++) {
-            z_last_raw.push(0);
-        }
-        z_last_diff = z_last_raw;
-    }
-}
-
-function appendZ(depth) {
-    initLoopArray();
-    // Shift everything in the array one to the left, discarding [0] and making the last index redundant
-    let z_last_0 = z_last_raw[0]; // We're about to get rid of this, but we need it for math later.
-    for(let i = 0; i < 9; i++) {  // Getting raw values to play with
-        z_last_raw[i] = z_last_raw[i+1]
-    }
-    z_last_raw[9] = depth;
-
-    // We don't actually care about the actual depth, we care that we aren't moving. So, a new array comprised of
-    // the difference between each measurement is what we need.
-    for(let i = 1; i < 10; i++) {
-        z_last_diff[i] = -(z_last_raw[i] - z_last_raw[i-1]); // make negative because pressure decreases as ROV goes up
-    }
-    z_last_diff[0] = z_last_diff[0] - z_last_0;
-}
-
-function getDepthIntegral() {
-    // This isn't an integral of the entire usage since that's not useful- it's just loop_history*interval length ms.
-    let returnval=0;
-    for(let i = 0; i < 10; i++) {
-        returnval += z_last_diff[i]*10;
-    }
-    return returnval;
-}
-
-function getDepthDerivative() {
-    return (z_last_diff[9] - z_last_diff[0] ) / 2;
+    // difference between target and current depth
+    const error = targetDepth - await depthSlave.getPressure();
+    const dofValue = Math.min(Math.max(-1, error / 15), 1);
 }
 
 function setLEDBrightness(data) {
