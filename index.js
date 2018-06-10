@@ -391,7 +391,7 @@ async function depthLoop() {
     // difference between target and current depth
     const error = targetPressure - await depthSlave.getPressure();
     const dofValue = Math.min(Math.max(-1, error / 30), 1);
-    DOFValues[4] = dofValue;
+    DOFValues[4] = -dofValue;
     setMotors({
         headers: {
             transactionID: responseTypes.MOTORDATA
