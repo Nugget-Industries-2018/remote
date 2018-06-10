@@ -100,7 +100,7 @@ const pca = args.debug ? undefined : new Pca9685Driver({
 });
 
 // global not-constants
-let _client, depthLockToggle, targetDepth;
+let _client, depthLockToggle, targetPressure;
 
 // exit on any message from parent process (if it exists)
 process.on('message', process.exit);
@@ -373,8 +373,8 @@ async function setDepthLock(data) {
 
     // depth lock on!!
     depthLockToggle = true;
-    targetDepth = await depthSlave.getDepth();
-    logger.i('depth lock', `depth lock enabled, setting to ${targetDepth}`);
+    targetPressure = await depthSlave.getPressure();
+    logger.i('depth lock', `depth lock enabled, setting to ${targetPressure}`);
     intervals['depthLock'] = setInterval(depthLoop, 100);
 
     // respond like a good boy
@@ -388,9 +388,9 @@ let zKd = 0;
 
 async function depthLoop() {
     // difference between target and current depth
-    const error = targetDepth - await depthSlave.getPressure();
+    const error = targetPressure - await depthSlave.getPressure();
     const dofValue = Math.min(Math.max(-1, error / 15), 1);
-    logger.v('PIDDOFValue', dofValue);
+    logger.v('PIDDOFValue', error);
 }
 
 function setLEDBrightness(data) {
