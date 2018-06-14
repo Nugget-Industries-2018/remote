@@ -82,6 +82,7 @@ const logger = new nugLog(args.logLevel, 'remote.log', () => {
 });
 if (args.debug) logger.i('startup', 'running in debug mode');
 const tokenTypeEmitter = new EventEmitter();
+const specialEmitter = new EventEmitter();
 const pca = args.debug ? undefined : new Pca9685Driver({
     i2c: i2cbus.openSync(1),
     address: 0x40,
@@ -199,6 +200,12 @@ tokenTypeEmitter.on(tokenTypes.STOPPITEMPSTREAM, stopPiTempStream);
 tokenTypeEmitter.on(tokenTypes.SETDEPTHLOCK, setDepthLock);
 tokenTypeEmitter.on(tokenTypes.LEDTEST, setLEDBrightness);
 tokenTypeEmitter.on(tokenTypes.PIDTUNE, tunePIDLoop);
+tokenTypeEmitter.on(tokenTypes.SPECIALTOKEN, data => specialEmitter.emit(data.headers.specialType, data));
+
+specialEmitter.on('test', data => {
+    logger.d('special delivery', 'IT FUCKING WORKED');
+    return sendToken(new responseToken('WOOOOO', data.headers.transactionID));
+});
 
 // respond with the same body as the request
 function echo(data) {
