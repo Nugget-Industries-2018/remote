@@ -261,7 +261,7 @@ function setMotors(data, fromController = false) {
     const vectorMotorVals = calcMotorValues(DOFValues.slice(0, 3), vectorMapMatrix);
     const depthMotorVals = calcMotorValues(DOFValues.slice(3, 5), depthMapMatrix);
     const manipulatorVal = calcMotorValue(DOFValues[5]);
-    const picamServoVal = calcMotorValue(DOFValues[7]);
+    const picamServoVal = calcMotorValue(DOFValues[7], 500);
     const motorValues = vectorMotorVals.concat(depthMotorVals.concat(manipulatorVal.concat(picamServoVal)));
     logger.d('motor values', JSON.stringify(motorValues));
     motorValues.map((motorVal, index) => {
@@ -286,9 +286,11 @@ function setMotors(data, fromController = false) {
 /**
  * Wrapper for calcMotorValues for when you only have to set one motor value (  like the manipulator)
  * @param data - DOF data
+ * @param diff - diff for calcMotorValues
+ * @param mid - mid for calcMotorValues
  * @returns {Array<Object>}
  */
-function calcMotorValue(data) {
+function calcMotorValue(data, diff = 400, mid = 1550) {
     return calcMotorValues([[data]], [[1]]);
 }
 
@@ -296,13 +298,13 @@ function calcMotorValue(data) {
  * Map the input DOF data to motor values
  * @param data - Array of DOF values
  * @param matrix - Matrix mapping DOFs to motor values
+ * @param diff - the difference in pulse width microseconds between mid and min/max
+ * @param mid - the exact middle of the pulse width range of the thing we're controlling
  * @returns {Array<Object>}
  */
-function calcMotorValues(data, matrix) {
-    const rawValues = matrix.map(row => {
+function calcMotorValues(data, matrix, diff = 400, mid = 1550) {
+    const rawValues = matrix.map(row =>
         /*
-         * OK let me explain my math here:
-         *
          * Each row in the matrix vectorMapMatrix is a motor, and each column is a degree of freedom.
          *
          * With the reduce function we're applying the values of the 5 degrees of freedom to each row
@@ -319,13 +321,13 @@ function calcMotorValues(data, matrix) {
          *
          * TODO I'd like to fix the last one if we have time, it's really a nitpicky thing though.
          */
-        return row.reduce((sum, dir, index) => sum + dir * data[index], 0);
-    });
+        row.reduce((sum, dir, index) => sum + dir * data[index], 0)
+    );
 
     return rawValues.map(element =>
         // divide all elements by max
         //        calculate max using reduce
-        element / rawValues.reduce((accum, val) => Math.abs(val) > accum ? Math.abs(val) : accum, 1) * 400 + 1550
+        element / rawValues.reduce((accum, val) => Math.abs(val) > accum ? Math.abs(val) : accum, 1) * diff + mid
     )
 }
 
