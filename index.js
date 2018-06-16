@@ -49,17 +49,19 @@ const i2cbus = !args.debug ? require('i2c-bus') : { openSync: () => 69 };
 // global constants
 const hostAddress = '0.0.0.0';
 const hostPort = 8080;
-const motorChannels = [
-    // maps each motor position to its PWM channel
-    3,  // LF
-    8,  // RF
-    2,  // LB
-    9,  // RB
-    1,  // F
-    11, // B
-    0,  // Manipulator
-    10  // picam servo
-];
+const motorChannels = {
+    LF: 3,
+    RF: 8,
+    LB: 2,
+    RB: 9,
+    F: 1,
+    B: 11,
+    vector: [ this.LF, this.RF, this.LB, this.RB ],
+    depth: [ this.F, this.B ],
+    manip: 0,
+    picam: 10,
+    leveler: 7
+};
 const LEDChannels = [5, 6];
 const vectorMapMatrix = [
     // F/B, Turn, Strafe
@@ -94,9 +96,9 @@ const pca = args.debug ? undefined : new Pca9685Driver({
         throw error;
     }
     logger.i('PCA Init', 'PCA Initialized successfully');
-    motorChannels.map(async channel => {
-        console.log(`setting channel ${channel} to 1550us`);
-        pca.setPulseLength(channel, 1550);
+    Object.keys(motorChannels).map(async key => {
+        console.log(`setting ${key} to 1550us`);
+        pca.setPulseLength(motorChannels[key], 1550);
     });
 });
 
@@ -254,44 +256,121 @@ function stopMagStream(data) {
  * Maps degrees of freedom to motor values and sends the motor values in the body of a response token.
  * @param data - token recieved from the surface
  */
-let DOFValues;
+// old joystick values
+let oldDOFValues = {
+    FB: 0,
+    turn: 0,
+    strafe: 0,
+    pitch: 0,
+    depth: 0,
+    manip: 0,
+    leveler: 0,
+    picam: 0
+};
+let oldMotorValues = {
+    vector: [1550, 1550, 1550, 1550],
+    depth: [1550, 1550],
+    manip: 1550,
+    picam: 1550,
+    leveler: 1550
+};
 function setMotors(data, fromController = false) {
     logger.d('motor values token', JSON.stringify(data));
-    DOFValues = data.body;
-    const vectorMotorVals = calcMotorValues(DOFValues.slice(0, 3), vectorMapMatrix);
-    const depthMotorVals = calcMotorValues(DOFValues.slice(3, 5), depthMapMatrix);
-    const manipulatorVal = calcMotorValue(DOFValues[5]);
-    const picamServoVal = calcMotorValue(DOFValues[7], 500);
-    const motorValues = vectorMotorVals.concat(depthMotorVals.concat(manipulatorVal.concat(picamServoVal)));
+    const DOFValues = data.body;
+    if (DOFValues.hasOwnProperty('picamControl')) piCam(DOFValues.picamControl);
+    const motorValues = {
+        vector: (DOFValues.hasOwnProperty('FB') || DOFValues.hasOwnProperty('turn') || DOFValues.hasOwnProperty('strafe'))
+            ? calcMotorValues([
+                DOFValues.hasOwnProperty('FB') ? DOFValues.FB : oldDOFValues.FB,
+                DOFValues.hasOwnProperty('turn') ? DOFValues.turn : oldDOFValues.turn,
+                DOFValues.hasOwnProperty('strafe') ? DOFValues.strafe : oldDOFValues.strafe
+            ], vectorMapMatrix)
+            : oldMotorValues.vector,
+        depth: (DOFValues.hasOwnProperty('pitch') || (DOFValues.hasOwnProperty('depth') && !depthLockToggle && fromController))
+            ? calcMotorValues([
+                DOFValues.hasOwnProperty('pitch') ? DOFValues.pitch : oldDOFValues.pitch,
+                DOFValues.hasOwnProperty('depth') ? DOFValues.depth : oldDOFValues.depth
+            ], depthMapMatrix)
+            : oldMotorValues.depth,
+        manip: DOFValues.hasOwnProperty('manip')
+            ? calcMotorValue(DOFValues.manip)
+            : oldMotorValues.manip,
+        picam: DOFValues.hasOwnProperty('picam')
+            ? calcMotorValue(DOFValues.picam)
+            : oldMotorValues.picam,
+        leveler: DOFValues.hasOwnProperty('leveler')
+            ? calcMotorValue(DOFValues.leveler, 500)
+            : oldMotorValues.leveler
+    };
     logger.d('motor values', JSON.stringify(motorValues));
-    motorValues.map((motorVal, index) => {
-        if (args.debug || (depthLockToggle && fromController && (index === 4 || index === 5))) return;
-        try {
-            pca.setPulseLength(motorChannels[index], motorVal);
-        }
-        catch (error) {
-            console.error(`YOU GOT AN ERROR BITCH ${motorVal} INDEX ${index} DON'T FLY`);
-            console.error(error);
-        }
+    motorValues.vector.map((value, index) => setMotorValue(value, motorChannels.vector[index]));
+    motorValues.depth.map((value, index) => {
+        if (depthLockToggle && index === 1) return;
+        setMotorValue(value, motorChannels.depth[index])
     });
-
-    if (!args.debug)
-        pca.setDutyCycle(6, DOFValues[6]);
-    logger.d('leveler', `Setting leveler channel to ${DOFValues[6]}`);
+    setMotorValue(motorValues.manip, motorChannels.manip);
+    setMotorValue(motorValues.picam, motorChannels.picam);
+    setMotorValue(motorValues.leveler, motorChannels.leveler);
 
     const response = new responseToken(motorValues, data.headers.transactionID);
     sendToken(response);
+    Object.assign(oldDOFValues, DOFValues);
+    oldMotorValues = motorValues
 }
 
 /**
- * Wrapper for calcMotorValues for when you only have to set one motor value (  like the manipulator)
+ * Just set one motor but do all the things too
+ * @param data
+ */
+function setMotor(data) {
+    setMotors({
+        headers: {
+            transactionID: responseTypes.MOTORDATA
+        },
+        body: data
+    });
+}
+
+function piCam(DOFValue) {
+    if (!DOFValue) {
+        clearInterval(intervals['piCam']);
+        return;
+    }
+    intervals['piCam'] = setInterval(() => {
+        const val = oldDOFValues.picam + 0.01 * DOFValue;
+        if (val < -1 || val > 1)
+            return piCam(0);
+        setMotor({
+            picam: val
+        });
+    }, 10);
+}
+
+/**
+ * Just set the fuckin thing and make sure it doesn't fail too hard
+ * @param value
+ * @param channel
+ */
+function setMotorValue(value, channel) {
+    if (args.debug) return;
+    try {
+        pca.setPulseLength(value, channel);
+    }
+    catch (error) {
+        console.error(`YOU GOT AN ERROR BITCH ${value} CHANNEL ${channel} DON'T FLY`);
+        console.error(error);
+    }
+}
+
+/**
+ * Wrapper for calcMotorValues for when you only have to set one motor value (like the manipulator)
  * @param data - DOF data
  * @param diff - diff for calcMotorValues
  * @param mid - mid for calcMotorValues
- * @returns {Array<Object>}
+ * @returns {Object} - actually a number
  */
 function calcMotorValue(data, diff = 400, mid = 1550) {
-    return calcMotorValues([[data]], [[1]]);
+    return calcMotorValues([[data]], [[1]])[0];
 }
 
 /**
@@ -326,7 +405,7 @@ function calcMotorValues(data, matrix, diff = 400, mid = 1550) {
 
     return rawValues.map(element =>
         // divide all elements by max
-        //        calculate max using reduce
+        // calculate max using reduce
         element / rawValues.reduce((accum, val) => Math.abs(val) > accum ? Math.abs(val) : accum, 1) * diff + mid
     )
 }
@@ -400,12 +479,8 @@ async function depthLoop() {
     // difference between target and current depth
     const error = targetPressure - await depthSlave.getPressure();
     const dofValue = Math.min(Math.max(-1, error / 30), 1);
-    DOFValues[4] = -dofValue;
-    setMotors({
-        headers: {
-            transactionID: responseTypes.MOTORDATA
-        },
-        body: DOFValues
+    setMotor({
+        depth: -dofValue
     });
 
     logger.v('depth lock', dofValue);
