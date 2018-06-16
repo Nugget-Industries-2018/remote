@@ -98,6 +98,7 @@ const pca = args.debug ? undefined : new Pca9685Driver({
     }
     logger.i('PCA Init', 'PCA Initialized successfully');
     Object.keys(motorChannels).map(async key => {
+        if (key === 'vector' || key === 'depth') return;
         console.log(`setting ${key} to 1550us`);
         pca.setPulseLength(motorChannels[key], 1550);
     });
