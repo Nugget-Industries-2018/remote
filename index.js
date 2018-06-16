@@ -57,11 +57,13 @@ const motorChannels = {
     RB: 9,
     F: 1,
     B: 11,
-    vector: [ this.LF, this.RF, this.LB, this.RB ],
-    depth: [ this.F, this.B ],
     manip: 0,
     picam: 10,
     leveler: 7
+};
+const motorChannelGroups = {
+    vector: [ motorChannels.LF, motorChannels.RF, motorChannels.LB, motorChannels.RB ],
+    depth: [ motorChannels.F, motorChannels.B ],
 };
 const LEDChannels = [5, 6];
 const vectorMapMatrix = [
@@ -312,10 +314,10 @@ function setMotors(data, fromController = false) {
             : oldMotorValues.leveler
     };
     logger.d('motor values', JSON.stringify(motorValues));
-    motorValues.vector.map((value, index) => setChannel(motorChannels.vector[index], value));
+    motorValues.vector.map((value, index) => setChannel(motorChannelGroups.vector[index], value));
     motorValues.depth.map((value, index) => {
         if (depthLockToggle && index === 1) return;
-        setChannel(motorChannels.depth[index], value);
+        setChannel(motorChannelGroups.depth[index], value);
     });
     setChannel(motorChannels.manip, motorValues.manip);
     setChannel(motorChannels.picam, motorValues.picam);
