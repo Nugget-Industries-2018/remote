@@ -45,6 +45,7 @@ const args = yargs
     .argv;
 if (args.local) args.debug = true;
 const depthSlave = !(args.debug || args.local) ? new (require('./depth/depth'))() : {};
+const electromagSlave = !(args.debug || args.local) ? new (require('./electromag/electromag'))() : {};
 const i2cbus = !args.debug ? require('i2c-bus') : { openSync: () => 69 };
 // global constants
 const hostAddress = '0.0.0.0';
@@ -207,6 +208,13 @@ tokenTypeEmitter.on(tokenTypes.SPECIALTOKEN, data => specialEmitter.emit(data.he
 specialEmitter.on('test', data => {
     logger.d('special delivery', 'IT FUCKING WORKED');
     return sendToken(new responseToken('WOOOOO', data.headers.transactionID));
+});
+specialEmitter.on('electromag', data => {
+    if (data.body) {
+        electromagSlave.on();
+        return;
+    }
+    electromagSlave.off();
 });
 
 // respond with the same body as the request
