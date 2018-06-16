@@ -311,19 +311,19 @@ function setMotors(data, fromController = false) {
             : oldMotorValues.leveler
     };
     logger.d('motor values', JSON.stringify(motorValues));
-    motorValues.vector.map((value, index) => setMotorValue(value, motorChannels.vector[index]));
+    motorValues.vector.map((value, index) => setChannel(value, motorChannels.vector[index]));
     motorValues.depth.map((value, index) => {
         if (depthLockToggle && index === 1) return;
-        setMotorValue(value, motorChannels.depth[index])
+        setChannel(value, motorChannels.depth[index])
     });
-    setMotorValue(motorValues.manip, motorChannels.manip);
-    setMotorValue(motorValues.picam, motorChannels.picam);
-    setMotorValue(motorValues.leveler, motorChannels.leveler);
+    setChannel(motorValues.manip, motorChannels.manip);
+    setChannel(motorValues.picam, motorChannels.picam);
+    setChannel(motorValues.leveler, motorChannels.leveler);
 
     const response = new responseToken(motorValues, data.headers.transactionID);
     sendToken(response);
     Object.assign(oldDOFValues, DOFValues);
-    oldMotorValues = motorValues
+    oldMotorValues = motorValues;
 }
 
 /**
@@ -359,10 +359,10 @@ function piCam(DOFValue) {
  * @param value
  * @param channel
  */
-function setMotorValue(value, channel) {
+function setChannel(value, channel) {
     if (args.debug) return;
     try {
-        pca.setPulseLength(value, channel);
+        pca.setPulseLength(channel, value);
     }
     catch (error) {
         console.error(`YOU GOT AN ERROR BITCH ${value} CHANNEL ${channel} DON'T FLY`);
