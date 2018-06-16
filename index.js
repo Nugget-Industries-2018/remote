@@ -311,14 +311,14 @@ function setMotors(data, fromController = false) {
             : oldMotorValues.leveler
     };
     logger.d('motor values', JSON.stringify(motorValues));
-    motorValues.vector.map((value, index) => setChannel(value, motorChannels.vector[index]));
+    motorValues.vector.map((value, index) => setChannel(motorChannels.vector[index], value));
     motorValues.depth.map((value, index) => {
         if (depthLockToggle && index === 1) return;
-        setChannel(value, motorChannels.depth[index])
+        setChannel(motorChannels.depth[index], value);
     });
-    setChannel(motorValues.manip, motorChannels.manip);
-    setChannel(motorValues.picam, motorChannels.picam);
-    setChannel(motorValues.leveler, motorChannels.leveler);
+    setChannel(motorChannels.manip, motorValues.manip);
+    setChannel(motorChannels.picam, motorValues.picam);
+    setChannel(motorChannels.leveler, motorValues.leveler);
 
     const response = new responseToken(motorValues, data.headers.transactionID);
     sendToken(response);
@@ -339,6 +339,26 @@ function setMotor(data) {
     });
 }
 
+/**
+ * Just set the fuckin thing and make sure it doesn't fail too hard
+ * @param value
+ * @param channel
+ */
+function setChannel(channel, value) {
+    if (args.debug) return;
+    try {
+        pca.setPulseLength(channel, value);
+    }
+    catch (error) {
+        console.error(`YOU GOT AN ERROR BITCH ${value} CHANNEL ${channel} DON'T FLY`);
+        console.error(error);
+    }
+}
+
+/**
+ * do a pi cam thing
+ * @param DOFValue
+ */
 function piCam(DOFValue) {
     if (!DOFValue) {
         clearInterval(intervals['piCam']);
@@ -352,22 +372,6 @@ function piCam(DOFValue) {
             picam: val
         });
     }, 10);
-}
-
-/**
- * Just set the fuckin thing and make sure it doesn't fail too hard
- * @param value
- * @param channel
- */
-function setChannel(value, channel) {
-    if (args.debug) return;
-    try {
-        pca.setPulseLength(channel, value);
-    }
-    catch (error) {
-        console.error(`YOU GOT AN ERROR BITCH ${value} CHANNEL ${channel} DON'T FLY`);
-        console.error(error);
-    }
 }
 
 /**
