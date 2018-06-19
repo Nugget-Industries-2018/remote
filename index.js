@@ -206,18 +206,25 @@ tokenTypeEmitter.on(tokenTypes.STOPPITEMPSTREAM, stopPiTempStream);
 tokenTypeEmitter.on(tokenTypes.SETDEPTHLOCK, setDepthLock);
 tokenTypeEmitter.on(tokenTypes.LEDTEST, setLEDBrightness);
 tokenTypeEmitter.on(tokenTypes.PIDTUNE, tunePIDLoop);
-tokenTypeEmitter.on(tokenTypes.SPECIALTOKEN, data => specialEmitter.emit(data.headers.specialType, data));
+tokenTypeEmitter.on(tokenTypes.SPECIALTOKEN, data => {
+    logger.d('special', `emitting type ${data.headers.specialType}`);
+    specialEmitter.emit(data.headers.specialType, data)
+});
 
 specialEmitter.on('test', data => {
     logger.d('special delivery', 'IT FUCKING WORKED');
-    return sendToken(new responseToken('WOOOOO', data.headers.transactionID));
+    sendToken(new responseToken('WOOOOO', data.headers.transactionID));
 });
-specialEmitter.on('electromag', data => {
+specialEmitter.on('electromag', async data => {
     if (data.body) {
-        electromagSlave.on();
-        return;
+        logger.d('electromag', 'setting electromag on');
+        await electromagSlave.on();
     }
-    electromagSlave.off();
+    else {
+        logger.d('electromag', 'setting electromag off');
+        electromagSlave.off();
+    }
+    sendToken(new responseToken({}, data.headers.transactionID));
 });
 
 // respond with the same body as the request
