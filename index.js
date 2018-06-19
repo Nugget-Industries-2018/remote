@@ -288,9 +288,6 @@ let oldDOFValues = {
 function setMotors(data, fromController = false) {
     logger.d('motor values token', JSON.stringify(data));
     const DOFValues = data.body;
-    if (DOFValues.hasOwnProperty('picamControl'))
-        piCam(DOFValues.picamControl);
-
     const motorValues = {};
     if (DOFValues.hasOwnProperty('FB') || DOFValues.hasOwnProperty('turn') || DOFValues.hasOwnProperty('strafe'))
         motorValues.vector = calcMotorValues([
@@ -359,25 +356,6 @@ function setChannel(channel, value) {
         console.error(error);
     }
     return value;
-}
-
-/**
- * do a pi cam thing
- * @param DOFValue
- */
-function piCam(DOFValue) {
-    if (!DOFValue) {
-        clearInterval(intervals['piCam']);
-        return;
-    }
-    intervals['piCam'] = setInterval(() => {
-        const val = oldDOFValues.picam + 0.01 * DOFValue;
-        if (val < -1 || val > 1)
-            return piCam(0);
-        setMotor({
-            picam: val
-        });
-    }, 100);
 }
 
 /**
