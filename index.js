@@ -278,55 +278,50 @@ let oldDOFValues = {
     leveler: 0,
     picam: 0
 };
-let oldMotorValues = {
-    vector: [1550, 1550, 1550, 1550],
-    depth: [1550, 1550],
-    manip: 1550,
-    picam: 1550,
-    leveler: 1550
-};
 function setMotors(data, fromController = false) {
     logger.d('motor values token', JSON.stringify(data));
     const DOFValues = data.body;
-    if (DOFValues.hasOwnProperty('picamControl')) piCam(DOFValues.picamControl);
-    const motorValues = {
-        vector: (DOFValues.hasOwnProperty('FB') || DOFValues.hasOwnProperty('turn') || DOFValues.hasOwnProperty('strafe'))
-            ? calcMotorValues([
-                DOFValues.hasOwnProperty('FB') ? DOFValues.FB : oldDOFValues.FB,
-                DOFValues.hasOwnProperty('turn') ? DOFValues.turn : oldDOFValues.turn,
-                DOFValues.hasOwnProperty('strafe') ? DOFValues.strafe : oldDOFValues.strafe
-            ], vectorMapMatrix)
-            : oldMotorValues.vector,
-        depth: (DOFValues.hasOwnProperty('pitch') || (DOFValues.hasOwnProperty('depth') && !depthLockToggle && fromController))
-            ? calcMotorValues([
-                DOFValues.hasOwnProperty('pitch') ? DOFValues.pitch : oldDOFValues.pitch,
-                DOFValues.hasOwnProperty('depth') ? DOFValues.depth : oldDOFValues.depth
-            ], depthMapMatrix)
-            : oldMotorValues.depth,
-        manip: DOFValues.hasOwnProperty('manip')
-            ? calcMotorValue(DOFValues.manip)
-            : oldMotorValues.manip,
-        picam: DOFValues.hasOwnProperty('picam')
-            ? calcMotorValue(DOFValues.picam)
-            : oldMotorValues.picam,
-        leveler: DOFValues.hasOwnProperty('leveler')
-            ? calcMotorValue(DOFValues.leveler, 500)
-            : oldMotorValues.leveler
-    };
+    if (DOFValues.hasOwnProperty('picamControl'))
+        piCam(DOFValues.picamControl);
+
+    const motorValues = {};
+    if (DOFValues.hasOwnProperty('FB') || DOFValues.hasOwnProperty('turn') || DOFValues.hasOwnProperty('strafe'))
+        motorValues.vector = calcMotorValues([
+            DOFValues.hasOwnProperty('FB') ? DOFValues.FB : oldDOFValues.FB,
+            DOFValues.hasOwnProperty('turn') ? DOFValues.turn : oldDOFValues.turn,
+            DOFValues.hasOwnProperty('strafe') ? DOFValues.strafe : oldDOFValues.strafe
+        ], vectorMapMatrix)
+            .map((value, index) => setChannel(motorChannelGroups.vector[index], value));
+    if (DOFValues.hasOwnProperty('pitch') || (DOFValues.hasOwnProperty('depth') && !depthLockToggle && fromController))
+        motorValues.depth = calcMotorValues([
+            DOFValues.hasOwnProperty('pitch') ? DOFValues.pitch : oldDOFValues.pitch,
+            DOFValues.hasOwnProperty('depth') ? DOFValues.depth : oldDOFValues.depth
+        ], depthMapMatrix)
+            .map((value, index) => {
+                if (depthLockToggle && index === 1) return;
+                setChannel(motorChannelGroups.depth[index], value);
+            });
+    if (DOFValues.hasOwnProperty('manip'))
+        motorValues.manip = setChannel(
+            motorChannels.manip,
+            calcMotorValue(DOFValues.manip)
+        );
+    if (DOFValues.hasOwnProperty('picam'))
+        motorValues.picam = setChannel(
+            motorChannels.picam,
+            calcMotorValue(DOFValues.picam)
+        );
+    if (DOFValues.hasOwnProperty('leveler'))
+        motorValues.leveler = setChannel(
+            motorChannels.leveler,
+            calcMotorValue(DOFValues.leveler, 500)
+        );
+
     logger.d('motor values', JSON.stringify(motorValues));
-    motorValues.vector.map((value, index) => setChannel(motorChannelGroups.vector[index], value));
-    motorValues.depth.map((value, index) => {
-        if (depthLockToggle && index === 1) return;
-        setChannel(motorChannelGroups.depth[index], value);
-    });
-    setChannel(motorChannels.manip, motorValues.manip);
-    setChannel(motorChannels.picam, motorValues.picam);
-    setChannel(motorChannels.leveler, motorValues.leveler);
 
     const response = new responseToken(motorValues, data.headers.transactionID);
     sendToken(response);
     Object.assign(oldDOFValues, DOFValues);
-    oldMotorValues = motorValues;
 }
 
 /**
@@ -344,11 +339,11 @@ function setMotor(data) {
 
 /**
  * Just set the fuckin thing and make sure it doesn't fail too hard
- * @param value
+ * @param value -
  * @param channel
  */
 function setChannel(channel, value) {
-    if (args.debug) return;
+    if (args.debug) return value;
     try {
         pca.setPulseLength(channel, value);
     }
@@ -356,6 +351,7 @@ function setChannel(channel, value) {
         console.error(`YOU GOT AN ERROR BITCH ${value} CHANNEL ${channel} DON'T FLY`);
         console.error(error);
     }
+    return value;
 }
 
 /**
@@ -374,7 +370,7 @@ function piCam(DOFValue) {
         setMotor({
             picam: val
         });
-    }, 10);
+    }, 100);
 }
 
 /**
