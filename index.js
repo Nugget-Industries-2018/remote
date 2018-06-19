@@ -51,11 +51,11 @@ const i2cbus = !args.debug ? require('i2c-bus') : { openSync: () => 69 };
 const hostAddress = '0.0.0.0';
 const hostPort = 8080;
 const motorChannels = {
-    LF: 3,
-    RF: 8,
-    LB: 2,
-    RB: 9,
-    F: 1,
+    LF: 8,
+    RF: 1,
+    LB: 9,
+    RB: 2,
+    F: 3,
     B: 11,
     manip: 0,
     picam: 10,
