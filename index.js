@@ -68,10 +68,10 @@ const motorChannelGroups = {
 const LEDChannels = [5, 6];
 const vectorMapMatrix = [
     // F/B, Turn, Strafe
-    [ 1,  1,  1 ], // LF
-    [ 1, -1, -1 ], // RF
-    [ 1,  1, -1 ], // LB
-    [ 1, -1,  1 ], // RB
+    [ 1,  0.5,  1 ], // LF
+    [ 1, -0.5, -1 ], // RF
+    [ 1,  0.5, -1 ], // LB
+    [ 1, -0.5,  1 ], // RB
 ];
 const depthMapMatrix = [
     // Pitch, Depth
